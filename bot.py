@@ -145,43 +145,38 @@ if __name__ == "__main__":
 
         sell_str = f"{sell:,}"
 
-        print(f"تم الجلب من: {source}")
+        last_price = None
 
-        last_message = get_last_channel_message()
+        # قراءة آخر سعر محفوظ
+        if os.path.exists("last_price.txt"):
+            with open("last_price.txt", "r") as f:
+                try:
+                    last_price = int(f.read().strip())
+                except:
+                    pass
 
-        # استخراج آخر سعر من آخر رسالة
-        last_price = re.findall(
-            r'15\d{2}',
-            last_message
-        )
+        # إذا نفس السعر لا ينشر
+        if last_price == sell:
 
-        if last_price:
+            print("السعر لم يتغير، لن يتم الإرسال")
 
-            last_price = int(
-                last_price[0]
+        else:
+
+            message = (
+                f"💵 *تحديث سعر الدولار الآن*\n\n"
+                f"📍¦ *بورصة الكفاح*\n"
+                f"🔻¦ {sell_str} دينار ➜ {sell * 100:,}\n"
+                f"━━━━━━━━━━━━━━━━━\n"
+                f"https://t.me/DollarNowIQ"
             )
 
-            if last_price == sell:
+            send_message(message)
 
-                print(
-                    "السعر لم يتغير، لن يتم الإرسال"
-                )
+            # حفظ آخر سعر
+            with open("last_price.txt", "w") as f:
+                f.write(str(sell))
 
-                exit()
+            print(f"تم النشر: {sell}")
 
-        message = (
-            f"💵 *تحديث سعر الدولار الآن*\n\n"
-            f"📍¦ *بورصة الكفاح*\n"
-            f"🔻¦ {sell_str} دينار ➜ {sell * 100:,}\n"
-            f"━━━━━━━━━━━━━━━━━\n"
-            f"https://t.me/DollarNowIQ"
-        )
-
-        send_message(message)
-
-        print(f"تم النشر: {sell}")
     else:
-
-        print(
-            "لم يتم العثور على السعر"
-        )
+        print("لم يتم العثور على السعر")
