@@ -1,19 +1,155 @@
 import os
+import re
 import requests
+import cloudscraper
+from bs4 import BeautifulSoup
 
+# ================= الإعدادات =================
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID")
 
-message = "رسالة تجريبية من GitHub 🚀"
+# ================= دالة سحب الأسعار =================
+def get_real_price():
+    scraper = cloudscraper.create_scraper()
 
-url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    try:
+        res = scraper.get(
+            "https://iraqprices.com",
+            timeout=15
+        )
 
-data = {
-    "chat_id": CHANNEL_ID,
-    "text": message
-}
+        if res.status_code != 200:
+            print(f"خطأ الموقع: {res.status_code}")
+            return None, None, None
 
-response = requests.post(url, data=data)
+        soup = BeautifulSoup(res.text, "html.parser")
 
-print(response.status_code)
-print(response.text)
+        arabic_digits = '٠١٢٣٤٥٦٧٨٩'
+        english_digits = '0123456789'
+
+        trans_table = str.maketrans(
+            arabic_digits,
+            english_digits
+        )
+
+        clean_text = (
+            soup.get_text(separator=" ")
+            .translate(trans_table)
+            .replace("،", "")
+            .replace(",", "")
+            .replace(".", "")
+        )
+
+        if "الكفاح" not in clean_text:
+            return None, None, None
+
+        idx = clean_text.find("الكفاح")
+        context = clean_text[idx:idx+150]
+
+        prices = re.findall(r'15\d{2}', context)
+
+        if len(prices) >= 2:
+            prices = sorted(
+                list(
+                    set(
+                        [int(p) for p in prices]
+                    )
+                )
+            )
+
+            sell = prices[-1]
+            buy = prices[0]
+
+            return sell, buy, "Iraq-Prices"
+
+    except Exception as e:
+        print(f"خطأ جلب السعر: {e}")
+
+    return None, None, None
+
+
+# ================= قراءة آخر رسالة =================
+def get_last_channel_message():
+    try:
+        scraper = cloudscraper.create_scraper()
+
+        channel_name = CHANNEL_ID.replace("@", "")
+
+        res = scraper.get(
+            f"https://t.me/s/{channel_name}",
+            timeout=15
+        )
+
+        if res.status_code != 200:
+            return ""
+
+        soup = BeautifulSoup(
+            res.text,
+            "html.parser"
+        )
+
+        messages = soup.find_all(
+            'div',
+            class_='tgme_widget_message_text'
+        )
+
+        if messages:
+            return messages[-1].text
+
+    except Exception as e:
+        print(f"خطأ قراءة آخر رسالة: {e}")
+
+    return ""
+
+
+# ================= إرسال الرسالة =================
+def send_message(message):
+    try:
+        response = requests.post(
+            f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+            json={
+                "chat_id": CHANNEL_ID,
+                "text": message,
+                "parse_mode": "Markdown"
+            }
+        )
+
+        print(response.status_code)
+        print(response.text)
+
+    except Exception as e:
+        print(f"خطأ الإرسال: {e}")
+
+
+# ================= التشغيل =================
+if __name__ == "__main__":
+
+    sell, buy, source = get_real_price()
+
+    if sell and buy:
+
+        sell_str = f"{sell:,}"
+
+        print(f"تم الجلب من {source}")
+
+        last_message = get_last_channel_message()
+
+        if sell_str in last_message:
+            print("السعر لم يتغير، لن يتم الإرسال")
+
+        else:
+
+            message = (
+                f"💵 *تحديث سعر الدولار الآن*\n\n"
+                f"📍¦ *بورصة الكفاح*\n"
+                f"🔻¦ {sell_str} دينار ➜ {sell * 100:,}\n"
+                f"━━━━━━━━━━━━━━━━━\n"
+                f"https://t.me/DollarNowIQ"
+            )
+
+            send_message(message)
+
+            print(f"تم النشر: {sell}")
+
+    else:
+        print("لم يتم العثور على السعر")
