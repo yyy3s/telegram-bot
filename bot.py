@@ -147,21 +147,19 @@ if __name__ == "__main__":
 
         print(f"تم الجلب من: {source}")
 
-        last_message = get_last_channel_message()
+      last_message = get_last_channel_message()
 
-        # استخراج آخر سعر منشور
-        last_price = re.findall(
-            r'15\d{2}',
-            last_message
-        )
+# استخراج آخر سعر من آخر منشور
+last_price = re.findall(r'15\d{2}', last_message)
 
-        if last_price and int(last_price[0]) == sell:
+if last_price:
+    last_price = int(last_price[0])
 
-            print(
-                "السعر لم يتغير - لن يتم الإرسال"
-            )
+    if last_price == sell:
+        print("السعر لم يتغير، لن يتم الإرسال")
+        exit()
 
-        else:
+else:
 
             message = (
                 f"💵 *تحديث سعر الدولار الآن*\n\n"
