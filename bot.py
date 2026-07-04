@@ -147,34 +147,39 @@ if __name__ == "__main__":
 
         print(f"تم الجلب من: {source}")
 
-      last_message = get_last_channel_message()
+        last_message = get_last_channel_message()
 
-# استخراج آخر سعر من آخر منشور
-last_price = re.findall(r'15\d{2}', last_message)
+        # استخراج آخر سعر من آخر رسالة
+        last_price = re.findall(
+            r'15\d{2}',
+            last_message
+        )
 
-if last_price:
-    last_price = int(last_price[0])
+        if last_price:
 
-    if last_price == sell:
-        print("السعر لم يتغير، لن يتم الإرسال")
-        exit()
-
-else:
-
-            message = (
-                f"💵 *تحديث سعر الدولار الآن*\n\n"
-                f"📍¦ *بورصة الكفاح*\n"
-                f"🔻¦ {sell_str} دينار ➜ {sell * 100:,}\n"
-                f"━━━━━━━━━━━━━━━━━\n"
-                f"https://t.me/DollarNowIQ"
+            last_price = int(
+                last_price[0]
             )
 
-            send_message(message)
+            if last_price == sell:
 
-            print(
-                f"تم النشر بنجاح: {sell}"
-            )
+                print(
+                    "السعر لم يتغير، لن يتم الإرسال"
+                )
 
+                exit()
+
+        message = (
+            f"💵 *تحديث سعر الدولار الآن*\n\n"
+            f"📍¦ *بورصة الكفاح*\n"
+            f"🔻¦ {sell_str} دينار ➜ {sell * 100:,}\n"
+            f"━━━━━━━━━━━━━━━━━\n"
+            f"https://t.me/DollarNowIQ"
+        )
+
+        send_message(message)
+
+        print(f"تم النشر: {sell}")
     else:
 
         print(
