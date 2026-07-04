@@ -4,7 +4,7 @@ import requests
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID")
 
-message = "مرحبا، هذه رسالة تجريبية من البوت 🚀"
+message = "رسالة تجريبية من GitHub 🚀"
 
 url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
@@ -13,4 +13,7 @@ data = {
     "text": message
 }
 
-requests.post(url, data=data)
+response = requests.post(url, data=data)
+
+print(response.status_code)
+print(response.text)
