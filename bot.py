@@ -10,6 +10,7 @@ CHANNEL_ID = os.getenv("CHANNEL_ID")
 
 # ================= دالة سحب الأسعار =================
 def get_real_price():
+
     scraper = cloudscraper.create_scraper()
 
     try:
@@ -19,10 +20,13 @@ def get_real_price():
         )
 
         if res.status_code != 200:
-            print(f"خطأ الموقع: {res.status_code}")
+            print(f"خطأ بالموقع: {res.status_code}")
             return None, None, None
 
-        soup = BeautifulSoup(res.text, "html.parser")
+        soup = BeautifulSoup(
+            res.text,
+            "html.parser"
+        )
 
         arabic_digits = '٠١٢٣٤٥٦٧٨٩'
         english_digits = '0123456789'
@@ -46,13 +50,17 @@ def get_real_price():
         idx = clean_text.find("الكفاح")
         context = clean_text[idx:idx+150]
 
-        prices = re.findall(r'15\d{2}', context)
+        prices = re.findall(
+            r'15\d{2}',
+            context
+        )
 
         if len(prices) >= 2:
+
             prices = sorted(
                 list(
                     set(
-                        [int(p) for p in prices]
+                        [int(x) for x in prices]
                     )
                 )
             )
@@ -70,13 +78,18 @@ def get_real_price():
 
 # ================= قراءة آخر رسالة =================
 def get_last_channel_message():
+
     try:
+
         scraper = cloudscraper.create_scraper()
 
-        channel_name = CHANNEL_ID.replace("@", "")
+        channel = CHANNEL_ID.replace(
+            "@",
+            ""
+        )
 
         res = scraper.get(
-            f"https://t.me/s/{channel_name}",
+            f"https://t.me/s/{channel}",
             timeout=15
         )
 
@@ -89,22 +102,24 @@ def get_last_channel_message():
         )
 
         messages = soup.find_all(
-            'div',
-            class_='tgme_widget_message_text'
+            "div",
+            class_="tgme_widget_message_text"
         )
 
         if messages:
             return messages[-1].text
 
     except Exception as e:
-        print(f"خطأ قراءة آخر رسالة: {e}")
+        print(f"خطأ قراءة الرسالة: {e}")
 
     return ""
 
 
 # ================= إرسال الرسالة =================
 def send_message(message):
+
     try:
+
         response = requests.post(
             f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
             json={
@@ -126,17 +141,25 @@ if __name__ == "__main__":
 
     sell, buy, source = get_real_price()
 
-
     if sell and buy:
 
         sell_str = f"{sell:,}"
 
-        print(f"تم الجلب من {source}")
+        print(f"تم الجلب من: {source}")
 
         last_message = get_last_channel_message()
 
-        if sell_str in last_message:
-            print("السعر لم يتغير، لن يتم الإرسال")
+        # استخراج آخر سعر منشور
+        last_price = re.findall(
+            r'15\d{2}',
+            last_message
+        )
+
+        if last_price and int(last_price[0]) == sell:
+
+            print(
+                "السعر لم يتغير - لن يتم الإرسال"
+            )
 
         else:
 
@@ -150,7 +173,12 @@ if __name__ == "__main__":
 
             send_message(message)
 
-            print(f"تم النشر: {sell}")
+            print(
+                f"تم النشر بنجاح: {sell}"
+            )
 
     else:
-        print("لم يتم العثور على السعر")
+
+        print(
+            "لم يتم العثور على السعر"
+        )
