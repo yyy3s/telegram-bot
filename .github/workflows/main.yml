@@ -1,4 +1,4 @@
-name: Run Telegram Bot Every Hour
+name: Run Telegram Bot Every 30 Minutes
 
 on:
   schedule:
@@ -12,6 +12,13 @@ jobs:
     steps:
       - name: Download files
         uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
 
       - name: Install Python
         uses: actions/setup-python@v5
@@ -28,3 +35,9 @@ jobs:
           CHANNEL_ID: ${{ secrets.CHANNEL_ID }}
         run: |
           python bot.py
+
+      - name: Save last price
+        run: |
+          git add .
+          git diff --quiet && git diff --staged --quiet || git commit -m "Update last price"
+          git push
