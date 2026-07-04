@@ -125,8 +125,6 @@ def send_message(message):
 if __name__ == "__main__":
 
     sell, buy, source = get_real_price()
-        # اختبار مؤقت
-    sell = 1559
 
 
     if sell and buy:
