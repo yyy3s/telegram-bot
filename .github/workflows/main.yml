@@ -1,8 +1,8 @@
-name: Run Telegram Bot Every 30 Minutes
+name: Run Telegram Bot
 
 on:
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '*/10 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -12,8 +12,6 @@ jobs:
     steps:
       - name: Download files
         uses: actions/checkout@v4
-        with:
-          persist-credentials: true
 
       - name: Configure Git
         run: |
