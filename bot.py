@@ -1,50 +1,25 @@
-from playwright.sync_api import sync_playwright
+import requests
+import json
 
-with sync_playwright() as p:
+try:
 
-    browser = p.chromium.launch(
-        headless=True,
-        args=[
-            "--disable-dev-shm-usage",
-            "--no-sandbox"
-        ]
+    response = requests.get(
+        "https://prices-api.alawe6663.workers.dev/prices",
+        timeout=20
     )
 
-    page = browser.new_page()
+    print("Status:", response.status_code)
 
-    def log_request(request):
+    data = response.json()
 
-        url = request.url.lower()
-
-        keywords = [
-            "api",
-            "price",
-            "market",
-            "exchange",
-            "gold",
-            "currency",
-            "rate",
-            "kifah",
-            "json"
-        ]
-
-        if any(x in url for x in keywords):
-
-            print("\n", request.url)
-
-    page.on(
-        "request",
-        log_request
+    print(
+        json.dumps(
+            data,
+            indent=4,
+            ensure_ascii=False
+        )
     )
 
-    page.goto(
-        "https://iraqprices.com",
-        wait_until="domcontentloaded",
-        timeout=30000
-    )
+except Exception as e:
 
-    page.wait_for_timeout(
-        15000
-    )
-
-    browser.close()
+    print(e)
