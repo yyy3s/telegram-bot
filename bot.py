@@ -121,7 +121,6 @@ if __name__=="__main__":
                 f"📍¦ *بورصة الكفاح*\n"
                 f"🔻¦ {price:,} دينار ➜ {price*100:,}\n"
                 f"━━━━━━━━━━━━━━━━━\n"
-                f"📡 المصدر: {source}\n"
                 f"https://t.me/DollarNowIQ"
 
             )
