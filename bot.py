@@ -24,11 +24,10 @@ def get_real_price():
 
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-            "Accept-Language": "ar-IQ,ar;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "ar-IQ,ar;q=0.9,en-US;q=0.8",
             "Cache-Control": "no-cache",
-            "Pragma": "no-cache",
-            "Referer": "https://google.com/"
+            "Pragma": "no-cache"
         }
 
         res = scraper.get(
@@ -50,14 +49,11 @@ def get_real_price():
 
         text = soup.get_text(" ")
 
-        # تحويل الأرقام العربية لإنكليزية
-        arabic_digits = "٠١٢٣٤٥٦٧٨٩"
-        english_digits = "0123456789"
-
+        # تحويل الأرقام العربية إلى إنكليزية
         text = text.translate(
             str.maketrans(
-                arabic_digits,
-                english_digits
+                "٠١٢٣٤٥٦٧٨٩",
+                "0123456789"
             )
         )
 
@@ -65,47 +61,33 @@ def get_real_price():
             text
             .replace("،", "")
             .replace(",", "")
-            .replace(".", "")
         )
-
-        idx = text.find("الكفاح")
-
-        if idx == -1:
-            print("لم يتم العثور على كلمة الكفاح")
-            return None, None, None
-
-        context = text[idx:idx+500]
 
         print("\n========== النص المستخرج ==========")
-        print(context)
+        print(text[:1500])
 
-        prices = re.findall(
-            r'15\d{2}',
-            context
+        # استخراج سعر 100$ موازي الكفاح
+        match = re.search(
+            r'موازي\s*\(الكفاح\)\s*(\d{6})',
+            text
         )
 
-        print("\n========== الأسعار المكتشفة ==========")
-        print(prices)
+        if not match:
+            print("لم يتم العثور على سعر الكفاح")
+            return None, None, None
 
-        if len(prices) >= 2:
+        price_100 = int(
+            match.group(1)
+        )
 
-            prices = sorted(
-                list(
-                    set(
-                        [int(x) for x in prices]
-                    )
-                )
-            )
+        # تحويله لسعر الدولار الواحد
+        price = price_100 // 100
 
-            buy = prices[0]
-            sell = prices[-1]
+        print("\n========== السعر ==========")
+        print(f"100$ = {price_100}")
+        print(f"1$ = {price}")
 
-            print(f"\nشراء: {buy}")
-            print(f"بيع: {sell}")
-
-            return sell, buy, "IraqPrices"
-
-        print("لم يتم العثور على أسعار")
+        return price, price, "IraqPrices"
 
     except Exception as e:
         print(f"خطأ جلب السعر: {e}")
@@ -144,7 +126,7 @@ if __name__ == "__main__":
 
     sell, buy, source = get_real_price()
 
-    if sell and buy:
+    if sell:
 
         last_price = None
 
@@ -174,12 +156,10 @@ if __name__ == "__main__":
 
         else:
 
-            sell_str = f"{sell:,}"
-
             message = (
                 f"💵 *تحديث سعر الدولار الآن*\n\n"
                 f"📍¦ *بورصة الكفاح*\n"
-                f"🔻¦ {sell_str} دينار ➜ {sell * 100:,}\n"
+                f"🔻¦ {sell:,} دينار ➜ {sell * 100:,}\n"
                 f"━━━━━━━━━━━━━━━━━\n"
                 f"https://t.me/DollarNowIQ"
             )
