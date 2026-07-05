@@ -1,39 +1,43 @@
 from playwright.sync_api import sync_playwright
 
-try:
+with sync_playwright() as p:
 
-    with sync_playwright() as p:
+    browser = p.chromium.launch(
+        headless=True,
+        args=[
+            "--disable-dev-shm-usage",
+            "--no-sandbox"
+        ]
+    )
 
-        browser = p.chromium.launch(
-            headless=True,
-            args=[
-                "--disable-dev-shm-usage",
-                "--no-sandbox"
-            ]
-        )
+    page = browser.new_page()
 
-        page = browser.new_page()
+    def log_request(request):
 
-        page.goto(
-            "https://dollar-iraq.com",
-            wait_until="domcontentloaded",
-            timeout=30000
-        )
+        url = request.url
 
-        # انتظر حتى يتحدث الموقع
-        page.wait_for_timeout(10000)
+        if (
+            "api" in url.lower()
+            or "price" in url.lower()
+            or "market" in url.lower()
+            or "exchange" in url.lower()
+            or "dollar" in url.lower()
+        ):
 
-        text = page.locator(
-            "body"
-        ).inner_text()
+            print(url)
 
-        browser.close()
+    page.on(
+        "request",
+        log_request
+    )
 
-        print("\n========== النص ==========\n")
+    page.goto(
+        "https://dollar-iraq.com",
+        wait_until="domcontentloaded"
+    )
 
-        print(text[:10000])
+    page.wait_for_timeout(
+        15000
+    )
 
-except Exception as e:
-
-    print("\n========== خطأ ==========")
-    print(e)
+    browser.close()
