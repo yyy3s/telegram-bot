@@ -1,6 +1,5 @@
 import os
 import re
-import time
 import requests
 from playwright.sync_api import sync_playwright
 
@@ -31,73 +30,54 @@ def get_real_price():
                 timeout=30000
             )
 
-            prices = []
+            # انتظر حتى تتحدث الصفحة
+            page.wait_for_timeout(8000)
 
-            # راقب الصفحة 10 ثواني
-            for i in range(10):
+            text = page.locator(
+                "body"
+            ).inner_text()
 
-                text = page.locator(
-                    "body"
-                ).inner_text()
+            browser.close()
 
-                matches = re.findall(
-                    r'موازي.*?(\d{6})',
+            print("\n========== النص ==========")
+            print(text[:5000])
+
+            # ابحث عن سعر 100$ موازي الكفاح
+            match = re.search(
+                r'100\$\s*موازي\s*\(الكفاح\)\s*(\d+)',
+                text
+            )
+
+            if not match:
+
+                # محاولة ثانية إذا تغيّر ترتيب النص
+                match = re.search(
+                    r'موازي.*?الكفاح.*?(\d{6})',
                     text,
                     re.DOTALL
                 )
 
-                if matches:
+            if not match:
+                print("ما لكيت سعر")
+                return None, None, None
 
-                    try:
-
-                        current = int(
-                            matches[-1]
-                            .replace(",", "")
-                        )
-
-                        prices.append(current)
-
-                        print(
-                            f"قراءة {i+1}: {current}"
-                        )
-
-                    except:
-                        pass
-
-                time.sleep(1)
-
-            browser.close()
-
-            if not prices:
-
-                print(
-                    "ما لكيت أسعار"
-                )
-
-                return None,None,None
-
-            # خذ آخر قراءة
-            price100 = prices[-1]
+            price100 = int(
+                match.group(1)
+                .replace(",", "")
+            )
 
             price = price100 // 100
 
-            print(
-                f"100$ = {price100}"
-            )
+            print(f"100$ = {price100}")
+            print(f"1$ = {price}")
 
-            print(
-                f"1$ = {price}"
-            )
-
-            return price,price,"IraqPrices"
+            return price, price, "IraqPrices"
 
     except Exception as e:
 
-        print(
-            f"خطأ: {e}"
-        )
+        print(f"خطأ: {e}")
 
-    return None,None,None
+    return None, None, None
 
 
 # ================= إرسال =================
@@ -130,7 +110,7 @@ if __name__=="__main__":
 
     if sell:
 
-        last_price=None
+        last_price = None
 
         if os.path.exists(
             "last_price.txt"
@@ -142,21 +122,14 @@ if __name__=="__main__":
             ) as f:
 
                 try:
-
-                    last_price=int(
+                    last_price = int(
                         f.read().strip()
                     )
-
                 except:
                     pass
 
-        print(
-            f"الحالي: {sell}"
-        )
-
-        print(
-            f"المحفوظ: {last_price}"
-        )
+        print(f"الحالي: {sell}")
+        print(f"المحفوظ: {last_price}")
 
         if sell != last_price:
 
@@ -168,25 +141,17 @@ if __name__=="__main__":
                 f"https://t.me/DollarNowIQ"
             )
 
-            if send_message(
-                message
-            ):
+            if send_message(message):
 
                 with open(
                     "last_price.txt",
                     "w"
                 ) as f:
 
-                    f.write(
-                        str(sell)
-                    )
+                    f.write(str(sell))
 
-                print(
-                    "تم النشر"
-                )
+                print("تم النشر")
 
         else:
 
-            print(
-                "السعر لم يتغير"
-            )
+            print("السعر لم يتغير")
