@@ -23,9 +23,11 @@ def get_real_price():
     try:
 
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "ar-IQ,ar;q=0.9,en-US;q=0.8",
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/138.0 Safari/537.36"
+            ),
             "Cache-Control": "no-cache",
             "Pragma": "no-cache"
         }
@@ -36,10 +38,9 @@ def get_real_price():
             timeout=20
         )
 
-        print(f"Status Code: {res.status_code}")
+        print("Status:", res.status_code)
 
         if res.status_code != 200:
-            print("فشل الوصول للموقع")
             return None, None, None
 
         soup = BeautifulSoup(
@@ -49,7 +50,7 @@ def get_real_price():
 
         text = soup.get_text(" ")
 
-        # تحويل الأرقام العربية إلى إنكليزية
+        # تحويل الأرقام العربية
         text = text.translate(
             str.maketrans(
                 "٠١٢٣٤٥٦٧٨٩",
@@ -59,38 +60,41 @@ def get_real_price():
 
         text = (
             text
-            .replace("،", "")
             .replace(",", "")
+            .replace("،", "")
         )
 
-        print("\n========== النص المستخرج ==========")
-        print(text[:1500])
+        print("\n========== بداية النص ==========")
+        print(text[:3000])
 
-        # استخراج سعر 100$ موازي الكفاح
-        match = re.search(
-            r'موازي\s*\(الكفاح\)\s*(\d{6})',
-            text
+        # أخذ جميع أسعار 100$ موازي
+        matches = re.findall(
+            r'موازي.*?100\$.*?(\d{6})',
+            text,
+            re.DOTALL
         )
 
-        if not match:
-            print("لم يتم العثور على سعر الكفاح")
+        print("\n========== الأسعار المكتشفة ==========")
+        print(matches)
+
+        if not matches:
+            print("لم يتم العثور على سعر")
             return None, None, None
 
-        price_100 = int(
-            match.group(1)
-        )
+        # نأخذ آخر قيمة (الأحدث)
+        price_100 = int(matches[-1])
 
-        # تحويله لسعر الدولار الواحد
+        # تحويل إلى سعر الدولار الواحد
         price = price_100 // 100
 
-        print("\n========== السعر ==========")
+        print("\n========== السعر النهائي ==========")
         print(f"100$ = {price_100}")
         print(f"1$ = {price}")
 
         return price, price, "IraqPrices"
 
     except Exception as e:
-        print(f"خطأ جلب السعر: {e}")
+        print(f"خطأ: {e}")
 
     return None, None, None
 
@@ -117,7 +121,7 @@ def send_message(message):
         return response.status_code == 200
 
     except Exception as e:
-        print(f"خطأ الإرسال: {e}")
+        print(f"خطأ إرسال: {e}")
         return False
 
 
@@ -130,13 +134,9 @@ if __name__ == "__main__":
 
         last_price = None
 
-        # قراءة آخر سعر محفوظ
         if os.path.exists("last_price.txt"):
 
-            with open(
-                "last_price.txt",
-                "r"
-            ) as f:
+            with open("last_price.txt", "r") as f:
 
                 try:
                     last_price = int(
@@ -145,21 +145,20 @@ if __name__ == "__main__":
                 except:
                     pass
 
-        print("\n========== مقارنة الأسعار ==========")
-        print(f"السعر الحالي: {sell}")
-        print(f"آخر سعر محفوظ: {last_price}")
+        print("\n========== مقارنة ==========")
+        print("الحالي:", sell)
+        print("المحفوظ:", last_price)
 
-        # إذا لم يتغير السعر
-        if last_price == sell:
+        if sell == last_price:
 
-            print("السعر لم يتغير، لن يتم الإرسال")
+            print("السعر لم يتغير")
 
         else:
 
             message = (
                 f"💵 *تحديث سعر الدولار الآن*\n\n"
                 f"📍¦ *بورصة الكفاح*\n"
-                f"🔻¦ {sell:,} دينار ➜ {sell * 100:,}\n"
+                f"🔻¦ {sell:,} دينار ➜ {sell*100:,}\n"
                 f"━━━━━━━━━━━━━━━━━\n"
                 f"https://t.me/DollarNowIQ"
             )
@@ -173,11 +172,9 @@ if __name__ == "__main__":
                     "w"
                 ) as f:
 
-                    f.write(
-                        str(sell)
-                    )
+                    f.write(str(sell))
 
-                print(f"تم النشر: {sell}")
+                print("تم حفظ السعر الجديد")
 
     else:
 
