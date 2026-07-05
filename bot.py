@@ -1,105 +1,85 @@
 import os
 import re
+import time
 import requests
-import cloudscraper
-from bs4 import BeautifulSoup
+from playwright.sync_api import sync_playwright
 
-# ================= الإعدادات =================
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID")
 
 
-# ================= جلب السعر =================
+# ================= جلب السعر الحقيقي =================
 def get_real_price():
-
-    scraper = cloudscraper.create_scraper(
-        browser={
-            "browser": "chrome",
-            "platform": "windows",
-            "mobile": False
-        }
-    )
 
     try:
 
-        headers = {
-            "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/138.0 Safari/537.36"
-            ),
-            "Cache-Control": "no-cache",
-            "Pragma": "no-cache"
-        }
+        with sync_playwright() as p:
 
-        res = scraper.get(
-            "https://iraqprices.com",
-            headers=headers,
-            timeout=20
-        )
-
-        print(f"Status Code: {res.status_code}")
-
-        if res.status_code != 200:
-            print("فشل الوصول للموقع")
-            return None, None, None
-
-        soup = BeautifulSoup(
-            res.text,
-            "html.parser"
-        )
-
-        text = soup.get_text(" ")
-
-        # تحويل الأرقام العربية إلى إنكليزية
-        text = text.translate(
-            str.maketrans(
-                "٠١٢٣٤٥٦٧٨٩",
-                "0123456789"
+            browser = p.chromium.launch(
+                headless=True
             )
-        )
 
-        text = (
-            text
-            .replace(",", "")
-            .replace("،", "")
-            .replace("\n", " ")
-        )
+            page = browser.new_page()
 
-        print("\n========== بداية النص ==========")
-        print(text[:3000])
+            page.goto(
+                "https://iraqprices.com",
+                wait_until="networkidle",
+                timeout=60000
+            )
 
-        # استخراج سعر 100$ موازي الكفاح فقط
-        match = re.search(
-            r'سعر\s*100\$\s*موازي\s*\(الكفاح\)\s*(\d{6})',
-            text
-        )
+            # انتظار تحميل الأرقام
+            page.wait_for_timeout(
+                5000
+            )
 
-        if not match:
+            text = page.locator(
+                "body"
+            ).inner_text()
 
-            print("لم يتم العثور على سعر موازي الكفاح")
-            return None, None, None
+            browser.close()
 
-        price_100 = int(
-            match.group(1)
-        )
+            print("\n========== النص ==========")
+            print(text[:3000])
 
-        # تحويل 100$ إلى سعر دولار واحد
-        price = price_100 // 100
+            # سعر 100$ موازي الكفاح
+            match = re.search(
+                r'100\$\s*موازي\s*\(الكفاح\)\s*([\d,]+)',
+                text
+            )
 
-        print("\n========== السعر النهائي ==========")
-        print(f"100$ = {price_100}")
-        print(f"1$ = {price}")
+            if not match:
 
-        return price, price, "IraqPrices"
+                print(
+                    "لم يتم العثور على السعر"
+                )
+
+                return None,None,None
+
+            price100 = int(
+                match.group(1)
+                .replace(",","")
+            )
+
+            price = price100 // 100
+
+            print(
+                f"100$ = {price100}"
+            )
+
+            print(
+                f"1$ = {price}"
+            )
+
+            return price,price,"IraqPrices"
 
     except Exception as e:
-        print(f"خطأ: {e}")
 
-    return None, None, None
+        print(e)
+
+    return None,None,None
 
 
-# ================= إرسال الرسالة =================
+# ================= إرسال =================
 def send_message(message):
 
     try:
@@ -109,33 +89,33 @@ def send_message(message):
             json={
                 "chat_id": CHANNEL_ID,
                 "text": message,
-                "parse_mode": "Markdown",
-                "disable_web_page_preview": True
+                "parse_mode": "Markdown"
             }
         )
 
-        print("\n========== نتيجة الإرسال ==========")
         print(response.status_code)
-        print(response.text)
 
-        return response.status_code == 200
+        return response.status_code==200
 
     except Exception as e:
-        print(f"خطأ إرسال: {e}")
+
+        print(e)
+
         return False
 
 
-# ================= التشغيل =================
-if __name__ == "__main__":
+# ================= تشغيل =================
+if __name__=="__main__":
 
-    sell, buy, source = get_real_price()
+    sell,buy,source=get_real_price()
 
     if sell:
 
-        last_price = None
+        last_price=None
 
-        # قراءة آخر سعر محفوظ
-        if os.path.exists("last_price.txt"):
+        if os.path.exists(
+            "last_price.txt"
+        ):
 
             with open(
                 "last_price.txt",
@@ -143,23 +123,25 @@ if __name__ == "__main__":
             ) as f:
 
                 try:
-                    last_price = int(
+
+                    last_price=int(
                         f.read().strip()
                     )
+
                 except:
                     pass
 
-        print("\n========== مقارنة ==========")
-        print(f"السعر الحالي: {sell}")
-        print(f"السعر المحفوظ: {last_price}")
+        print(
+            f"الحالي: {sell}"
+        )
 
-        if sell == last_price:
+        print(
+            f"المحفوظ: {last_price}"
+        )
 
-            print("السعر لم يتغير")
+        if sell!=last_price:
 
-        else:
-
-            message = (
+            message=(
                 f"💵 *تحديث سعر الدولار الآن*\n\n"
                 f"📍¦ *بورصة الكفاح*\n"
                 f"🔻¦ {sell:,} دينار ➜ {sell*100:,}\n"
@@ -167,11 +149,9 @@ if __name__ == "__main__":
                 f"https://t.me/DollarNowIQ"
             )
 
-            success = send_message(
+            if send_message(
                 message
-            )
-
-            if success:
+            ):
 
                 with open(
                     "last_price.txt",
@@ -182,8 +162,12 @@ if __name__ == "__main__":
                         str(sell)
                     )
 
-                print("تم حفظ السعر الجديد")
+                print(
+                    "تم النشر"
+                )
 
-    else:
+        else:
 
-        print("لم يتم العثور على السعر")
+            print(
+                "السعر لم يتغير"
+            )
