@@ -8,23 +8,39 @@ from bs4 import BeautifulSoup
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID")
 
+
 # ================= جلب السعر =================
 def get_real_price():
 
-    scraper = cloudscraper.create_scraper()
+    scraper = cloudscraper.create_scraper(
+        browser={
+            "browser": "chrome",
+            "platform": "windows",
+            "mobile": False
+        }
+    )
 
     try:
 
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": "ar-IQ,ar;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache",
+            "Referer": "https://google.com/"
+        }
+
         res = scraper.get(
             "https://iraqprices.com",
-            headers={
-                "User-Agent": "Mozilla/5.0"
-            },
-            timeout=15
+            headers=headers,
+            timeout=20
         )
 
+        print(f"Status Code: {res.status_code}")
+
         if res.status_code != 200:
-            print(f"خطأ بالموقع: {res.status_code}")
+            print("فشل الوصول للموقع")
             return None, None, None
 
         soup = BeautifulSoup(
@@ -32,30 +48,33 @@ def get_real_price():
             "html.parser"
         )
 
-        arabic_digits = '٠١٢٣٤٥٦٧٨٩'
-        english_digits = '0123456789'
+        text = soup.get_text(" ")
 
-        trans_table = str.maketrans(
-            arabic_digits,
-            english_digits
+        # تحويل الأرقام العربية لإنكليزية
+        arabic_digits = "٠١٢٣٤٥٦٧٨٩"
+        english_digits = "0123456789"
+
+        text = text.translate(
+            str.maketrans(
+                arabic_digits,
+                english_digits
+            )
         )
 
-        clean_text = (
-            soup.get_text(separator=" ")
-            .translate(trans_table)
+        text = (
+            text
             .replace("،", "")
             .replace(",", "")
             .replace(".", "")
         )
 
-        if "الكفاح" not in clean_text:
+        idx = text.find("الكفاح")
+
+        if idx == -1:
             print("لم يتم العثور على كلمة الكفاح")
             return None, None, None
 
-        idx = clean_text.find("الكفاح")
-
-        # وسعنا البحث
-        context = clean_text[idx:idx+500]
+        context = text[idx:idx+500]
 
         print("\n========== النص المستخرج ==========")
         print(context)
@@ -78,15 +97,15 @@ def get_real_price():
                 )
             )
 
-            sell = prices[-1]
             buy = prices[0]
+            sell = prices[-1]
 
-            print(f"\nبيع: {sell}")
-            print(f"شراء: {buy}")
+            print(f"\nشراء: {buy}")
+            print(f"بيع: {sell}")
 
-            return sell, buy, "Iraq-Prices"
+            return sell, buy, "IraqPrices"
 
-        print("ماكو أسعار كافية")
+        print("لم يتم العثور على أسعار")
 
     except Exception as e:
         print(f"خطأ جلب السعر: {e}")
@@ -94,7 +113,7 @@ def get_real_price():
     return None, None, None
 
 
-# ================= إرسال رسالة =================
+# ================= إرسال الرسالة =================
 def send_message(message):
 
     try:
@@ -104,7 +123,8 @@ def send_message(message):
             json={
                 "chat_id": CHANNEL_ID,
                 "text": message,
-                "parse_mode": "Markdown"
+                "parse_mode": "Markdown",
+                "disable_web_page_preview": True
             }
         )
 
@@ -112,8 +132,11 @@ def send_message(message):
         print(response.status_code)
         print(response.text)
 
+        return response.status_code == 200
+
     except Exception as e:
         print(f"خطأ الإرسال: {e}")
+        return False
 
 
 # ================= التشغيل =================
@@ -123,11 +146,9 @@ if __name__ == "__main__":
 
     if sell and buy:
 
-        sell_str = f"{sell:,}"
-
         last_price = None
 
-        # قراءة آخر سعر
+        # قراءة آخر سعر محفوظ
         if os.path.exists("last_price.txt"):
 
             with open(
@@ -139,7 +160,6 @@ if __name__ == "__main__":
                     last_price = int(
                         f.read().strip()
                     )
-
                 except:
                     pass
 
@@ -147,11 +167,14 @@ if __name__ == "__main__":
         print(f"السعر الحالي: {sell}")
         print(f"آخر سعر محفوظ: {last_price}")
 
+        # إذا لم يتغير السعر
         if last_price == sell:
 
             print("السعر لم يتغير، لن يتم الإرسال")
 
         else:
+
+            sell_str = f"{sell:,}"
 
             message = (
                 f"💵 *تحديث سعر الدولار الآن*\n\n"
@@ -161,23 +184,21 @@ if __name__ == "__main__":
                 f"https://t.me/DollarNowIQ"
             )
 
-            send_message(message)
+            success = send_message(message)
 
-            with open(
-                "last_price.txt",
-                "w"
-            ) as f:
+            if success:
 
-                f.write(
-                    str(sell)
-                )
+                with open(
+                    "last_price.txt",
+                    "w"
+                ) as f:
 
-            print(
-                f"تم النشر: {sell}"
-            )
+                    f.write(
+                        str(sell)
+                    )
+
+                print(f"تم النشر: {sell}")
 
     else:
 
-        print(
-            "لم يتم العثور على السعر"
-        )
+        print("لم يتم العثور على السعر")
