@@ -1,4 +1,4 @@
-name: Run Telegram Bot Every 15 Minutes
+name: Run Telegram Bot Every 30 Minutes
 
 on:
   schedule:
@@ -28,11 +28,6 @@ jobs:
       - name: Install packages
         run: |
           pip install -r requirements.txt
-
-      # هذا السطر الجديد المهم
-      - name: Install Playwright browser
-        run: |
-          playwright install chromium
 
       - name: Run bot
         env:
