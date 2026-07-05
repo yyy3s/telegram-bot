@@ -1,37 +1,37 @@
-import requests
-import cloudscraper
-from bs4 import BeautifulSoup
+from playwright.sync_api import sync_playwright
 
 try:
 
-    scraper = cloudscraper.create_scraper()
+    with sync_playwright() as p:
 
-    response = scraper.get(
-        "https://dollar-iraq.com/",
-        timeout=20
-    )
-
-    print("\n========== Status ==========")
-    print(response.status_code)
-
-    soup = BeautifulSoup(
-        response.text,
-        "html.parser"
-    )
-
-    text = soup.get_text(
-        separator="\n"
-    )
-
-    text = text.translate(
-        str.maketrans(
-            "٠١٢٣٤٥٦٧٨٩",
-            "0123456789"
+        browser = p.chromium.launch(
+            headless=True,
+            args=[
+                "--disable-dev-shm-usage",
+                "--no-sandbox"
+            ]
         )
-    )
 
-    print("\n========== النص المستخرج ==========\n")
-    print(text[:10000])
+        page = browser.new_page()
+
+        page.goto(
+            "https://dollar-iraq.com",
+            wait_until="domcontentloaded",
+            timeout=30000
+        )
+
+        # انتظر حتى يتحدث الموقع
+        page.wait_for_timeout(10000)
+
+        text = page.locator(
+            "body"
+        ).inner_text()
+
+        browser.close()
+
+        print("\n========== النص ==========\n")
+
+        print(text[:10000])
 
 except Exception as e:
 
