@@ -8,14 +8,18 @@ from bs4 import BeautifulSoup
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID")
 
-# ================= دالة سحب الأسعار =================
+# ================= جلب السعر =================
 def get_real_price():
 
     scraper = cloudscraper.create_scraper()
 
     try:
+
         res = scraper.get(
             "https://iraqprices.com",
+            headers={
+                "User-Agent": "Mozilla/5.0"
+            },
             timeout=15
         )
 
@@ -45,15 +49,24 @@ def get_real_price():
         )
 
         if "الكفاح" not in clean_text:
+            print("لم يتم العثور على كلمة الكفاح")
             return None, None, None
 
         idx = clean_text.find("الكفاح")
-        context = clean_text[idx:idx+150]
+
+        # وسعنا البحث
+        context = clean_text[idx:idx+500]
+
+        print("\n========== النص المستخرج ==========")
+        print(context)
 
         prices = re.findall(
             r'15\d{2}',
             context
         )
+
+        print("\n========== الأسعار المكتشفة ==========")
+        print(prices)
 
         if len(prices) >= 2:
 
@@ -68,7 +81,12 @@ def get_real_price():
             sell = prices[-1]
             buy = prices[0]
 
+            print(f"\nبيع: {sell}")
+            print(f"شراء: {buy}")
+
             return sell, buy, "Iraq-Prices"
+
+        print("ماكو أسعار كافية")
 
     except Exception as e:
         print(f"خطأ جلب السعر: {e}")
@@ -76,46 +94,7 @@ def get_real_price():
     return None, None, None
 
 
-# ================= قراءة آخر رسالة =================
-def get_last_channel_message():
-
-    try:
-
-        scraper = cloudscraper.create_scraper()
-
-        channel = CHANNEL_ID.replace(
-            "@",
-            ""
-        )
-
-        res = scraper.get(
-            f"https://t.me/s/{channel}",
-            timeout=15
-        )
-
-        if res.status_code != 200:
-            return ""
-
-        soup = BeautifulSoup(
-            res.text,
-            "html.parser"
-        )
-
-        messages = soup.find_all(
-            "div",
-            class_="tgme_widget_message_text"
-        )
-
-        if messages:
-            return messages[-1].text
-
-    except Exception as e:
-        print(f"خطأ قراءة الرسالة: {e}")
-
-    return ""
-
-
-# ================= إرسال الرسالة =================
+# ================= إرسال رسالة =================
 def send_message(message):
 
     try:
@@ -129,6 +108,7 @@ def send_message(message):
             }
         )
 
+        print("\n========== نتيجة الإرسال ==========")
         print(response.status_code)
         print(response.text)
 
@@ -147,15 +127,26 @@ if __name__ == "__main__":
 
         last_price = None
 
-        # قراءة آخر سعر محفوظ
+        # قراءة آخر سعر
         if os.path.exists("last_price.txt"):
-            with open("last_price.txt", "r") as f:
+
+            with open(
+                "last_price.txt",
+                "r"
+            ) as f:
+
                 try:
-                    last_price = int(f.read().strip())
+                    last_price = int(
+                        f.read().strip()
+                    )
+
                 except:
                     pass
 
-        # إذا نفس السعر لا ينشر
+        print("\n========== مقارنة الأسعار ==========")
+        print(f"السعر الحالي: {sell}")
+        print(f"آخر سعر محفوظ: {last_price}")
+
         if last_price == sell:
 
             print("السعر لم يتغير، لن يتم الإرسال")
@@ -172,11 +163,21 @@ if __name__ == "__main__":
 
             send_message(message)
 
-            # حفظ آخر سعر
-            with open("last_price.txt", "w") as f:
-                f.write(str(sell))
+            with open(
+                "last_price.txt",
+                "w"
+            ) as f:
 
-            print(f"تم النشر: {sell}")
+                f.write(
+                    str(sell)
+                )
+
+            print(
+                f"تم النشر: {sell}"
+            )
 
     else:
-        print("لم يتم العثور على السعر")
+
+        print(
+            "لم يتم العثور على السعر"
+        )
