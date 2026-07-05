@@ -1,43 +1,31 @@
-from playwright.sync_api import sync_playwright
+import requests
+import json
 
-with sync_playwright() as p:
+try:
 
-    browser = p.chromium.launch(
-        headless=True,
-        args=[
-            "--disable-dev-shm-usage",
-            "--no-sandbox"
-        ]
+    response = requests.get(
+        "https://market-rate.m-tbeshe.workers.dev/",
+        timeout=20
     )
 
-    page = browser.new_page()
+    print("Status:", response.status_code)
 
-    def log_request(request):
+    print("\n========== الناتج ==========\n")
 
-        url = request.url
+    try:
+        data = response.json()
 
-        if (
-            "api" in url.lower()
-            or "price" in url.lower()
-            or "market" in url.lower()
-            or "exchange" in url.lower()
-            or "dollar" in url.lower()
-        ):
+        print(
+            json.dumps(
+                data,
+                indent=4,
+                ensure_ascii=False
+            )
+        )
 
-            print(url)
+    except:
+        print(response.text)
 
-    page.on(
-        "request",
-        log_request
-    )
+except Exception as e:
 
-    page.goto(
-        "https://dollar-iraq.com",
-        wait_until="domcontentloaded"
-    )
-
-    page.wait_for_timeout(
-        15000
-    )
-
-    browser.close()
+    print(e)
