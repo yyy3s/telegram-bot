@@ -1,5 +1,6 @@
 import os
 import re
+import time
 import requests
 from playwright.sync_api import sync_playwright
 
@@ -30,58 +31,76 @@ def get_real_price():
                 timeout=30000
             )
 
-            # انتظار ظهور سعر الكفاح
-            page.wait_for_function("""
-                () => {
-                    return document.body.innerText.includes(
-                        'سعر 100$ موازي (الكفاح)'
-                    )
-                }
-            """, timeout=15000)
+            prices = []
 
-            # انتظار إضافي حتى يتحدث الرقم الحقيقي
-            page.wait_for_timeout(3000)
+            # راقب الصفحة 10 ثواني
+            for i in range(10):
 
-            text = page.locator(
-                "body"
-            ).inner_text()
+                text = page.locator(
+                    "body"
+                ).inner_text()
+
+                matches = re.findall(
+                    r'موازي.*?(\d{6})',
+                    text,
+                    re.DOTALL
+                )
+
+                if matches:
+
+                    try:
+
+                        current = int(
+                            matches[-1]
+                            .replace(",", "")
+                        )
+
+                        prices.append(current)
+
+                        print(
+                            f"قراءة {i+1}: {current}"
+                        )
+
+                    except:
+                        pass
+
+                time.sleep(1)
 
             browser.close()
 
-            print("\n========== النص ==========")
-            print(text[:3000])
+            if not prices:
 
-            match = re.search(
-                r'سعر\s*100\$\s*موازي\s*\(الكفاح\)\s*([\d,]+)',
-                text
-            )
+                print(
+                    "ما لكيت أسعار"
+                )
 
-            if not match:
+                return None,None,None
 
-                print("لم يتم العثور على السعر")
-                return None, None, None
-
-            price100 = int(
-                match.group(1)
-                .replace(",", "")
-            )
+            # خذ آخر قراءة
+            price100 = prices[-1]
 
             price = price100 // 100
 
-            print("\n========== السعر ==========")
-            print(f"100$ = {price100}")
-            print(f"1$ = {price}")
+            print(
+                f"100$ = {price100}"
+            )
 
-            return price, price, "IraqPrices"
+            print(
+                f"1$ = {price}"
+            )
+
+            return price,price,"IraqPrices"
 
     except Exception as e:
 
-        print(f"خطأ: {e}")
+        print(
+            f"خطأ: {e}"
+        )
 
-    return None, None, None
+    return None,None,None
 
 
-# ================= إرسال الرسالة =================
+# ================= إرسال =================
 def send_message(message):
 
     try:
@@ -96,29 +115,26 @@ def send_message(message):
             }
         )
 
-        print("\n========== نتيجة الإرسال ==========")
-        print(response.status_code)
-        print(response.text)
-
         return response.status_code == 200
 
     except Exception as e:
 
-        print(f"خطأ الإرسال: {e}")
-
+        print(e)
         return False
 
 
-# ================= التشغيل =================
-if __name__ == "__main__":
+# ================= تشغيل =================
+if __name__=="__main__":
 
-    sell, buy, source = get_real_price()
+    sell,buy,source = get_real_price()
 
     if sell:
 
-        last_price = None
+        last_price=None
 
-        if os.path.exists("last_price.txt"):
+        if os.path.exists(
+            "last_price.txt"
+        ):
 
             with open(
                 "last_price.txt",
@@ -127,24 +143,24 @@ if __name__ == "__main__":
 
                 try:
 
-                    last_price = int(
+                    last_price=int(
                         f.read().strip()
                     )
 
                 except:
                     pass
 
-        print("\n========== مقارنة ==========")
-        print(f"السعر الحالي: {sell}")
-        print(f"السعر المحفوظ: {last_price}")
+        print(
+            f"الحالي: {sell}"
+        )
 
-        if sell == last_price:
+        print(
+            f"المحفوظ: {last_price}"
+        )
 
-            print("السعر لم يتغير")
+        if sell != last_price:
 
-        else:
-
-            message = (
+            message=(
                 f"💵 *تحديث سعر الدولار الآن*\n\n"
                 f"📍¦ *بورصة الكفاح*\n"
                 f"🔻¦ {sell:,} دينار ➜ {sell*100:,}\n"
@@ -152,11 +168,9 @@ if __name__ == "__main__":
                 f"https://t.me/DollarNowIQ"
             )
 
-            success = send_message(
+            if send_message(
                 message
-            )
-
-            if success:
+            ):
 
                 with open(
                     "last_price.txt",
@@ -167,8 +181,12 @@ if __name__ == "__main__":
                         str(sell)
                     )
 
-                print("تم حفظ السعر الجديد")
+                print(
+                    "تم النشر"
+                )
 
-    else:
+        else:
 
-        print("لم يتم العثور على السعر")
+            print(
+                "السعر لم يتغير"
+            )
