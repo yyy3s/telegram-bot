@@ -7,6 +7,7 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID")
 
 
+# ================= جلب السعر =================
 def get_real_price():
 
     try:
@@ -16,29 +17,17 @@ def get_real_price():
             browser = p.chromium.launch(
                 headless=True,
                 args=[
-                    "--disable-blink-features=AutomationControlled",
+                    "--disable-dev-shm-usage",
                     "--no-sandbox",
-                    "--disable-dev-shm-usage"
+                    "--disable-blink-features=AutomationControlled"
                 ]
             )
 
             context = browser.new_context(
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0 Safari/537.36",
-                viewport={
-                    "width":1366,
-                    "height":768
-                },
-                locale="ar-IQ"
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0 Safari/537.36"
             )
 
             page = context.new_page()
-
-            # إخفاء علامات الأتمتة
-            page.add_init_script("""
-            Object.defineProperty(navigator,'webdriver',{
-                get:()=>undefined
-            });
-            """)
 
             page.goto(
                 "https://iraqprices.com",
@@ -46,65 +35,114 @@ def get_real_price():
                 timeout=30000
             )
 
-            page.wait_for_timeout(8000)
+            # انتظار تحميل البيانات
+            page.wait_for_timeout(7000)
 
             text = page.locator("body").inner_text()
 
             browser.close()
 
+            print("\n========== النص ==========")
             print(text[:5000])
 
-            if "security verification" in text.lower():
-                print("Cloudflare ما زال حاجب الصفحة")
-                return None,None,None
-
+            # استخراج سعر 100$ موازي الكفاح
             match = re.search(
-                r'100\$\s*موازي.*?(\d{6})',
-                text,
-                re.DOTALL
+                r'سعر\s*100\$\s*موازي\s*\(الكفاح\)\s*([\d,]+)',
+                text
             )
 
             if not match:
+
+                print("ما لكيت السعر")
                 return None,None,None
 
-            price100 = int(match.group(1))
+            price100 = int(
+                match.group(1)
+                .replace(",", "")
+            )
+
             price = price100 // 100
 
-            print("100$ =",price100)
-            print("1$ =",price)
+            print("\n========== السعر ==========")
+            print(f"100$ = {price100}")
+            print(f"1$ = {price}")
 
             return price,price,"IraqPrices"
 
     except Exception as e:
-        print(e)
+
+        print(f"خطأ: {e}")
 
     return None,None,None
 
 
+# ================= إرسال =================
 def send_message(message):
 
-    response=requests.post(
-        f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
-        json={
-            "chat_id":CHANNEL_ID,
-            "text":message,
-            "parse_mode":"Markdown"
-        }
-    )
+    try:
 
-    return response.status_code==200
+        response = requests.post(
+            f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
+            json={
+                "chat_id": CHANNEL_ID,
+                "text": message,
+                "parse_mode": "Markdown",
+                "disable_web_page_preview": True
+            }
+        )
+
+        return response.status_code == 200
+
+    except Exception as e:
+
+        print(e)
+        return False
 
 
+# ================= تشغيل =================
 if __name__=="__main__":
 
     sell,buy,source=get_real_price()
 
     if sell:
 
-        message=(
-            f"💵 *تحديث سعر الدولار الآن*\n\n"
-            f"📍¦ *بورصة الكفاح*\n"
-            f"🔻¦ {sell:,} دينار ➜ {sell*100:,}"
-        )
+        last_price=None
 
-        send_message(message)
+        if os.path.exists("last_price.txt"):
+
+            with open("last_price.txt","r") as f:
+
+                try:
+                    last_price=int(
+                        f.read().strip()
+                    )
+                except:
+                    pass
+
+        print(f"الحالي: {sell}")
+        print(f"المحفوظ: {last_price}")
+
+        if sell != last_price:
+
+            message=(
+                f"💵 *تحديث سعر الدولار الآن*\n\n"
+                f"📍¦ *بورصة الكفاح*\n"
+                f"🔻¦ {sell:,} دينار ➜ {sell*100:,}\n"
+                f"━━━━━━━━━━━━━━━━━\n"
+                f"https://t.me/DollarNowIQ"
+            )
+
+            if send_message(message):
+
+                with open(
+                    "last_price.txt",
+                    "w"
+                ) as f:
+
+                    f.write(str(sell))
+
+                print("تم النشر")
+
+        else:
+
+            print("السعر لم يتغير")
